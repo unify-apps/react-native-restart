@@ -1,17 +1,18 @@
 package com.reactnativerestart;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
+
 import com.facebook.react.ReactApplication;
 import com.facebook.react.ReactInstanceManager;
 import com.facebook.react.bridge.LifecycleEventListener;
+import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
-import com.jakewharton.processphoenix.ProcessPhoenix;
-import com.facebook.react.bridge.Promise;
-
 
 public class RestartModule extends ReactContextBaseJavaModule {
 
@@ -25,18 +26,38 @@ public class RestartModule extends ReactContextBaseJavaModule {
         super(reactContext);
     }
 
+    private static void reloadReactNative(Activity activity) {
+        if (activity == null) return;
+
+        Context context = activity.getApplicationContext();
+
+        // Destroy the React instance so RN resets fully
+        if (context instanceof ReactApplication) {
+            ReactInstanceManager reactInstanceManager =
+                    ((ReactApplication) context).getReactNativeHost().getReactInstanceManager();
+
+            if (reactInstanceManager != null) {
+                reactInstanceManager.destroy();
+            }
+        }
+
+        // Restart the activity WITHOUT showing the splash screen
+        Intent intent = new Intent(context, activity.getClass());
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        context.startActivity(intent);
+
+        // Disable transition animation (important for avoiding flicker)
+        activity.overridePendingTransition(0, 0);
+    }
+
     private void loadBundleLegacy() {
         final Activity currentActivity = getCurrentActivity();
         if (currentActivity == null) {
             return;
         }
 
-        currentActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                currentActivity.recreate();
-            }
-        });
+        reloadReactNative(currentActivity);
     }
 
     private void loadBundle() {
@@ -89,7 +110,6 @@ public class RestartModule extends ReactContextBaseJavaModule {
         return instanceManager;
     }
 
-
     private void clearLifecycleEventListener() {
         if (mLifecycleEventListener != null) {
             getReactApplicationContext().removeLifecycleEventListener(mLifecycleEventListener);
@@ -108,7 +128,7 @@ public class RestartModule extends ReactContextBaseJavaModule {
         restartReason = reason;
         loadBundle();
     }
-    
+
     @ReactMethod
     public void getReason(Promise promise) {
         try {
@@ -117,10 +137,11 @@ public class RestartModule extends ReactContextBaseJavaModule {
             promise.reject("Create Event Error", e);
         }
     }
-    
+
 
     @Override
     public String getName() {
         return "RNRestart";
     }
+
 }

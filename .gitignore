@@ -64,3 +64,6 @@ coverage/
 
 # testing
 /coverage
+
+# cursor
+.history/
